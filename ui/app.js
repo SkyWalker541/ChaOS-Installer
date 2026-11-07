@@ -327,7 +327,7 @@ function finish(f) {
 		// The card stays in: the games, music and audiobooks go back on next
 		$("finished-title").textContent = "Done";
 		head.textContent = "Your saves and settings are back on the card.";
-		$("finished-what").textContent = "Now copy your games, music and audiobooks back onto the card: it's TORTOS on this "
+		$("finished-what").textContent = "Now copy your games, music and audiobooks back onto the card: it's ChaOS on this "
 			+ "computer. Then eject it, put it in the Brick and turn it on. The backup stays on this computer until you delete it.";
 	} else if (f.ok) {
 		$("finished-title").textContent = "Done";

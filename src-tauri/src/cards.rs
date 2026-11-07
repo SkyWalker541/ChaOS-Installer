@@ -54,6 +54,12 @@ pub struct Card {
     pub chaos: bool,
 }
 
+/// The games partition's label: ChaOS on a ChaOS card, TORTOS on one TortOS
+/// made (and on a TortOS card until its first ChaOS boot renames it)
+fn games_label(label: &str) -> bool {
+    label.eq_ignore_ascii_case("ChaOS") || label == "TORTOS"
+}
+
 /// The device whose system a boot partition's label names: PX2BOOT the GKD
 /// Pixel 2's, BRICKBOOT the Brick's. None for any other label.
 fn system_of(label: &str) -> Option<Device> {
@@ -192,7 +198,7 @@ mod system {
                 .map(|a| a.iter().filter_map(Value::as_dictionary).collect())
                 .unwrap_or_default();
             let system = partitions.iter().find_map(|p| system_of(&text(p, "VolumeName")));
-            let started = system.is_none() || partitions.iter().any(|p| text(p, "VolumeName") == "TORTOS");
+            let started = system.is_none() || partitions.iter().any(|p| games_label(text(p, "VolumeName")));
             let size = info.get("TotalSize").and_then(Value::as_unsigned_integer).unwrap_or(0);
             let mut card = Card {
                 id: id.clone(),
@@ -212,7 +218,7 @@ mod system {
             // (on a Brick card not started yet the largest is its root), else
             // the largest partition
             let main = if system.is_some() {
-                partitions.iter().find(|p| text(p, "VolumeName") == "TORTOS")
+                partitions.iter().find(|p| games_label(text(p, "VolumeName")))
             } else {
                 partitions
                     .iter()
@@ -364,7 +370,7 @@ mod system {
                 continue;
             }
             let system = parts.iter().find_map(|p| system_of(text(p, "label")));
-            let started = system.is_none() || parts.iter().any(|p| text(p, "label") == "TORTOS");
+            let started = system.is_none() || parts.iter().any(|p| games_label(text(p, "label")));
             let model = text(d, "model");
             let mut card = Card {
                 id: text(d, "path").to_string(),
@@ -384,7 +390,7 @@ mod system {
             // never its root, which a desktop may mount too (and whose label,
             // rootfs, once named the card); else the largest partition
             let main = if system.is_some() {
-                parts.iter().find(|p| text(p, "label") == "TORTOS")
+                parts.iter().find(|p| games_label(text(p, "label")))
             } else {
                 parts.iter().max_by_key(|p| number(p.get("size")))
             };
@@ -572,7 +578,7 @@ mod system {
             // ready for the first try
             let named: Vec<&str> =
                 letters.get(&disk).into_iter().flatten().filter_map(|(_, l)| l.as_deref()).collect();
-            let games_missing = named.iter().any(|l| system_of(l).is_some()) && !named.contains(&"TORTOS");
+            let games_missing = named.iter().any(|l| system_of(l).is_some()) && !named.iter().any(|l| games_label(l));
             let n = mounted.iter().find(|(d, _)| *d == disk).map_or(0, |(_, n)| *n);
             if (named.is_empty() || games_missing) && n < TRIES {
                 mount_unlettered(disk);
@@ -587,8 +593,8 @@ mod system {
                 .map(|v| v.iter().filter_map(|(l, name)| Some((*l, name.clone()?))).collect())
                 .unwrap_or_default();
             let system = volumes.iter().find_map(|(_, l)| system_of(l));
-            let started = system.is_none() || volumes.iter().any(|(_, l)| l == "TORTOS");
-            let games = volumes.iter().find(|(_, l)| system.is_none() || l == "TORTOS").cloned();
+            let started = system.is_none() || volumes.iter().any(|(_, l)| games_label(l));
+            let games = volumes.iter().find(|(_, l)| system.is_none() || games_label(l)).cloned();
             let reader = if product.is_empty() { format!("Removable drive {disk}") } else { product };
             let mut card = Card {
                 id: format!("\\\\.\\PhysicalDrive{disk}"),
@@ -625,6 +631,12 @@ pub fn list() -> Vec<Card> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn games_partition_by_either_name() {
+        assert!(super::games_label("ChaOS") && super::games_label("CHAOS") && super::games_label("TORTOS"));
+        assert!(!super::games_label("BRICKBOOT") && !super::games_label("NO NAME"));
+    }
+
     use super::*;
     use std::fs::{create_dir_all, write};
 
