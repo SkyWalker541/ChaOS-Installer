@@ -1,6 +1,6 @@
 [package]
 name = "chaos-installer"
-version = "1.0.1"
+version = "1.0.2"
 description = "Puts ChaOS on a TrimUI Brick card, or updates one"
 authors = ["SkyWalker541", "Eric Reinsmidt"]
 license = "GPL-3.0-or-later"

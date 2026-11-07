@@ -127,8 +127,9 @@ fn count_books(root: &Path) -> u32 {
         .count() as u32
 }
 
-fn read_version(root: &Path) -> Option<String> {
-    let v = fs::read_to_string(root.join("TortOS/VERSION")).ok()?;
+/// ChaOS keeps its files in ChaOS/; TortOS, and ChaOS before 0.6.0, in TortOS/
+fn read_version(root: &Path, dir: &str) -> Option<String> {
+    let v = fs::read_to_string(root.join(dir).join("VERSION")).ok()?;
     let v = v.trim();
     (!v.is_empty()).then(|| v.to_string())
 }
@@ -137,11 +138,15 @@ fn read_version(root: &Path) -> Option<String> {
 /// partition the disk carries, if any (system_of).
 fn read_contents(card: &mut Card, root: &Path, system: Option<Device>) {
     card.volume = Some(root.to_string_lossy().into_owned());
+    let chaos = root.join("ChaOS/launch.sh").is_file() || root.join("ChaOS/VERSION").is_file();
     let tortos = root.join("TortOS").is_dir();
-    card.trimui = system.is_none() && tortos && root.join(".tmp_update").is_dir();
+    card.trimui = system.is_none() && tortos && !chaos && root.join(".tmp_update").is_dir();
     card.device = if card.trimui { Some(Device::Brick) } else { system };
-    if tortos {
-        card.version = read_version(root);
+    if chaos {
+        card.version = read_version(root, "ChaOS");
+        card.chaos = true;
+    } else if tortos {
+        card.version = read_version(root, "TortOS");
         card.chaos = root.join("TortOS/CHAOS").is_file();
     }
     card.games = count_games(root);
@@ -631,6 +636,20 @@ pub fn list() -> Vec<Card> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_chaos_folder_is_chaos() {
+        use std::fs::{create_dir_all, write};
+        let root = std::env::temp_dir().join("chaos-installer-chaos-folder");
+        let _ = std::fs::remove_dir_all(&root);
+        create_dir_all(root.join("ChaOS")).unwrap();
+        write(root.join("ChaOS/VERSION"), "0.6.0\n").unwrap();
+        let mut c = card();
+        read_contents(&mut c, &root, Some(Device::Brick));
+        assert!(c.chaos && !c.trimui);
+        assert_eq!(c.version.as_deref(), Some("0.6.0"));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     #[test]
     fn games_partition_by_either_name() {
         assert!(super::games_label("ChaOS") && super::games_label("CHAOS") && super::games_label("TORTOS"));
