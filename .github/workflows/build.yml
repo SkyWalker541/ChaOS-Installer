@@ -1,8 +1,10 @@
 # ChaOS Installer for macOS, Windows and Linux.
 #
 # Every push and pull request: the tests, and all four files built, kept as
-# the run's artifacts. A tag v<version> (Cargo.toml's version): the same, then
-# the GitHub release with the four files and their SHA256SUMS.
+# the run's artifacts. Then, on main or a tag v<version>, the GitHub release
+# v<version> (Cargo.toml's version) with the four files and their SHA256SUMS,
+# when there isn't one yet: raising the version in Cargo.toml and pushing is
+# how a new installer is released.
 name: build
 
 on:
@@ -102,22 +104,33 @@ jobs:
         with: { name: linux, path: dist/* }
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     needs: [macos, windows, linux]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { path: dist, merge-multiple: true }
-      - name: The tag is Cargo.toml's version
+      - name: The version, and whether it is out already
+        id: v
+        env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           V=$(sed -n 's/^version = "\(.*\)"$/\1/p' src-tauri/Cargo.toml | head -1)
-          [ "v$V" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME is not v$V"; exit 1; }
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "v$V" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME is not v$V"; exit 1
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if gh release view "v$V" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "v$V is already released"; echo "out=1" >> "$GITHUB_OUTPUT"
+          fi
       - name: Checksums
+        if: steps.v.outputs.out != '1'
         working-directory: dist
         run: sha256sum ChaOS-Installer-* > SHA256SUMS && cat SHA256SUMS
       - name: Release
+        if: steps.v.outputs.out != '1'
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" \
-            --title "ChaOS Installer ${GITHUB_REF_NAME#v}" --generate-notes --verify-tag
+          V=${{ steps.v.outputs.version }}
+          gh release create "v$V" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "ChaOS Installer $V" --generate-notes
