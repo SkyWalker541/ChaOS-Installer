@@ -178,7 +178,11 @@ async fn eject_card(card: String) -> Result<(), String> {
 /// before it is published: TORTOS_BRICK_IMAGE for the Brick, TORTOS_IMAGE for
 /// the Pixel.
 fn local_release(brick: bool) -> Option<PathBuf> {
-    std::env::var_os(if brick { "TORTOS_BRICK_IMAGE" } else { "TORTOS_IMAGE" }).map(PathBuf::from)
+    // A test build from a file rather than a release: CHAOS_IMAGE
+    if !brick {
+        return None;
+    }
+    std::env::var_os("CHAOS_IMAGE").map(PathBuf::from)
 }
 
 /// What the window asked for
@@ -254,10 +258,10 @@ fn write(
     let card = find(card_id)?;
     let device = if brick { cards::Device::Brick } else { cards::Device::Pixel2 };
     if action == install::Action::Update && card.device != Some(device) {
-        return Err("This card doesn't have that device's TortOS on it to update.".into());
+        return Err("This card doesn't have ChaOS or TortOS for the Brick on it to update.".into());
     }
     if action == install::Action::Update && card.trimui {
-        return Err("This card runs TrimUI's firmware, so it can't be updated: moving it to TortOS's own \
+        return Err("This card runs TrimUI's firmware, so it can't be updated: moving it to ChaOS's own \
                     system erases it. A fresh install does that."
             .into());
     }
@@ -266,7 +270,7 @@ fn write(
         None => {
             let latest = release::latest()?;
             let asset = latest.asset(brick)?;
-            let dir = std::env::temp_dir().join("tortos-installer");
+            let dir = std::env::temp_dir().join("chaos-installer");
             (release::download(&latest, asset, &dir, progress, &|| cancel.load(Ordering::Relaxed))?, true)
         }
     };
@@ -381,5 +385,5 @@ fn main() {
         .invoke_handler(tauri::generate_handler![list_cards, backup_plan, latest_tortos, newer_installer,
                                                  open_installer_releases, show_card, eject_card, start, cancel])
         .run(tauri::generate_context!())
-        .expect("TortOS Installer could not start");
+        .expect("ChaOS Installer could not start");
 }

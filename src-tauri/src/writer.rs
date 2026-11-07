@@ -148,7 +148,7 @@ fn fit_gpt(head: &[u8], card_bytes: u64) -> Result<(Vec<u8>, u64, Vec<u8>, u64),
     let old_backup = u64_at(&head, 512 + 32);
     let ends = gpt_partitions(&head).unwrap_or_default().into_iter().flatten().map(|p| p.end()).max().unwrap_or(0);
     if ends > last - list_sectors {
-        return Err("This card is too small for TortOS.".into());
+        return Err("This card is too small for ChaOS.".into());
     }
     // Protective MBR: one 0xEE entry from sector 1 over the whole card
     let cover = (last).min(0xFFFF_FFFF) as u32;
@@ -396,7 +396,7 @@ pub fn fresh(
     let table = if gpt { HEAD } else { SECTOR as usize };
     head.truncate(table);
     if card_bytes < image_len {
-        return Err("This card is too small for TortOS.".into());
+        return Err("This card is too small for ChaOS.".into());
     }
     let fitted = if gpt { Some(fit_gpt(&head, card_bytes)?) } else { None };
     // From here the card is changed: the screen hears so first

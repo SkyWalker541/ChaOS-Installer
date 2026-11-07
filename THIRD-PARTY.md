@@ -1,7 +1,9 @@
 # Third-party notices
 
-TortOS Installer's own code is licensed under the GNU General Public License,
-version 3 or later; see `LICENSE`. Versions up to 2.0.0 were MIT.
+ChaOS Installer is a fork of TortOS Installer by Eric Reinsmidt
+(https://github.com/ericreinsmidt/TortOS-Installer). Its own code, and TortOS
+Installer's, is licensed under the GNU General Public License, version 3 or
+later; see `LICENSE`. The ChaOS logo and icons are ChaOS's own artwork.
 
 It is built with **Tauri** (https://tauri.app) and the Rust crates below, which
 keep their own licenses. Each app shows its window through the system's own web

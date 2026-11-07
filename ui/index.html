@@ -3,26 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TortOS Installer</title>
+<title>ChaOS Installer</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="window">
 	<header>
-		<img src="mark.svg" alt="">
-		<span class="wordmark"><span class="tort">Tort</span><span class="os">OS</span></span>
+		<img src="mark.svg" alt="ChaOS">
 		<span class="sub">Installer</span>
 		<button class="newer" id="newer" hidden></button>
 		<span class="ver" id="ver"></span>
 	</header>
 
 	<section id="main">
-		<h2>Device</h2>
-		<div class="pair" data-group="device">
-			<button class="choice" data-value="brick"><b>TrimUI Brick</b><span>Brick and Brick Hammer</span></button>
-			<button class="choice" data-value="pixel2"><b>GKD Pixel 2</b><span>TortOS on plastron</span></button>
-		</div>
-
 		<h2>Card</h2>
 		<div class="card" id="card">
 			<svg width="30" height="38" viewBox="0 0 30 38" aria-hidden="true">
@@ -59,7 +52,7 @@
 	<section id="confirm" hidden>
 		<h2 id="confirm-title">Fresh install</h2>
 		<div class="panel">
-			<p class="big">Erase <span id="confirm-card"></span> and install TortOS for <span id="confirm-device"></span>?</p>
+			<p class="big">Erase <span id="confirm-card"></span> and install ChaOS for <span id="confirm-device"></span>?</p>
 			<p id="confirm-what">Everything on it goes: games, music, saves.</p>
 			<!-- Moving a Brick card from TrimUI's firmware: what is kept, and what is the player's to copy -->
 			<p id="confirm-backup" hidden></p>

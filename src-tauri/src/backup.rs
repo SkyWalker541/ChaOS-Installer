@@ -48,7 +48,7 @@ pub struct Pending {
 /// Where backups go: TortOS backups in the computer's Documents, or the home
 /// folder where there is none.
 pub fn folder() -> Option<PathBuf> {
-    Some(dirs::document_dir().or_else(dirs::home_dir)?.join("TortOS backups"))
+    Some(dirs::document_dir().or_else(dirs::home_dir)?.join("ChaOS backups"))
 }
 
 /// The files under KEPT on a card, from its top, with their sizes. macOS's

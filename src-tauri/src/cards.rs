@@ -49,6 +49,9 @@ pub struct Card {
     /// A Brick card on TrimUI's firmware: TortOS/ beside .tmp_update/, and no
     /// BRICKBOOT. Moving it to the Brick's own system erases it
     pub trimui: bool,
+    /// ChaOS rather than TortOS: TortOS/CHAOS, which only ChaOS writes. Both
+    /// keep their files in TortOS/, and an update puts ChaOS on either
+    pub chaos: bool,
 }
 
 /// The device whose system a boot partition's label names: PX2BOOT the GKD
@@ -133,6 +136,7 @@ fn read_contents(card: &mut Card, root: &Path, system: Option<Device>) {
     card.device = if card.trimui { Some(Device::Brick) } else { system };
     if tortos {
         card.version = read_version(root);
+        card.chaos = root.join("TortOS/CHAOS").is_file();
     }
     card.games = count_games(root);
     card.songs = count_songs(&root.join("Music"));
@@ -202,7 +206,7 @@ mod system {
                 books: 0,
                 volume: None,
                 started,
-                trimui: false,
+                trimui: false, chaos: false,
             };
             // Where the games are: TORTOS on a card with TortOS's own system
             // (on a Brick card not started yet the largest is its root), else
@@ -374,7 +378,7 @@ mod system {
                 books: 0,
                 volume: None,
                 started,
-                trimui: false,
+                trimui: false, chaos: false,
             };
             // Where the games are: TORTOS on a card with TortOS's own system,
             // never its root, which a desktop may mount too (and whose label,
@@ -598,7 +602,7 @@ mod system {
                 books: 0,
                 volume: None,
                 started,
-                trimui: false,
+                trimui: false, chaos: false,
             };
             match games {
                 Some((letter, l)) => {
@@ -627,7 +631,7 @@ mod tests {
     fn card() -> Card {
         Card { id: "t".into(), name: String::new(), size_bytes: 0, reader: String::new(),
                device: None, version: None, games: 0, songs: 0, books: 0, volume: None, started: true,
-               trimui: false }
+               trimui: false, chaos: false }
     }
 
     #[test]

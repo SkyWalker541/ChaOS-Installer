@@ -6,6 +6,6 @@ Comment={{comment}}
 Exec={{exec}}
 StartupWMClass={{exec}}
 Icon={{icon}}
-Name=TortOS Installer
+Name=ChaOS Installer
 Terminal=false
 Type=Application

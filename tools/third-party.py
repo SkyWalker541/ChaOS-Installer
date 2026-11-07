@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""THIRD-PARTY.md: what TortOS Installer is built from that isn't its own,
+"""THIRD-PARTY.md: what ChaOS Installer is built from that isn't its own,
 made from Cargo's records, so the list is the build's and not a hand-kept
 one: every crate compiled into the macOS, Windows or Linux app, with its
 version, license, repository and which apps carry it.
@@ -41,11 +41,13 @@ def main():
     for name, target in TARGETS:
         for crate in shipped(target):
             apps.setdefault(crate, []).append(name)
-    apps = {c: a for c, a in apps.items() if not c.startswith("tortos-installer@")}
+    apps = {c: a for c, a in apps.items() if not c.startswith("chaos-installer@")}
     print("""# Third-party notices
 
-TortOS Installer's own code is licensed under the GNU General Public License,
-version 3 or later; see `LICENSE`. Versions up to 2.0.0 were MIT.
+ChaOS Installer is a fork of TortOS Installer by Eric Reinsmidt
+(https://github.com/ericreinsmidt/TortOS-Installer). Its own code, and TortOS
+Installer's, is licensed under the GNU General Public License, version 3 or
+later; see `LICENSE`. The ChaOS logo and icons are ChaOS's own artwork.
 
 It is built with **Tauri** (https://tauri.app) and the Rust crates below, which
 keep their own licenses. Each app shows its window through the system's own web

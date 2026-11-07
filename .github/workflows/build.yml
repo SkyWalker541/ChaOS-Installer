@@ -1,0 +1,123 @@
+# ChaOS Installer for macOS, Windows and Linux.
+#
+# Every push and pull request: the tests, and all four files built, kept as
+# the run's artifacts. A tag v<version> (Cargo.toml's version): the same, then
+# the GitHub release with the four files and their SHA256SUMS.
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: src-tauri }
+      - name: Tests
+        working-directory: src-tauri
+        run: cargo test --locked
+
+  macos:
+    needs: test
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: "aarch64-apple-darwin,x86_64-apple-darwin" }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: src-tauri }
+      - run: cargo install tauri-cli --version "^2" --locked
+      - name: One app for Apple Silicon and Intel
+        working-directory: src-tauri
+        run: cargo tauri build --target universal-apple-darwin --bundles app
+      - name: Zip it as Finder would
+        run: |
+          V=$(sed -n 's/^version = "\(.*\)"$/\1/p' src-tauri/Cargo.toml | head -1)
+          mkdir -p dist
+          ditto -c -k --keepParent "src-tauri/target/universal-apple-darwin/release/bundle/macos/ChaOS Installer.app" "dist/ChaOS-Installer-$V-macOS.zip"
+      - uses: actions/upload-artifact@v4
+        with: { name: macos, path: dist/* }
+
+  windows:
+    needs: test
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: src-tauri }
+      - name: A portable exe
+        working-directory: src-tauri
+        run: cargo build --release --locked
+      - name: Name it
+        shell: bash
+        run: |
+          V=$(sed -n 's/^version = "\(.*\)"$/\1/p' src-tauri/Cargo.toml | head -1)
+          mkdir -p dist
+          cp src-tauri/target/release/chaos-installer.exe "dist/ChaOS-Installer-$V-Windows.exe"
+      - uses: actions/upload-artifact@v4
+        with: { name: windows, path: dist/* }
+
+  linux:
+    needs: test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev rpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: src-tauri }
+      - run: cargo install tauri-cli --version "^2" --locked
+      - name: A .deb and an .rpm
+        working-directory: src-tauri
+        run: cargo tauri build --bundles deb,rpm
+      - name: Name them
+        run: |
+          V=$(sed -n 's/^version = "\(.*\)"$/\1/p' src-tauri/Cargo.toml | head -1)
+          B=src-tauri/target/release/bundle
+          mkdir -p dist
+          cp "$B/deb/chaos-installer_${V}_amd64.deb" "dist/ChaOS-Installer-$V-amd64.deb"
+          cp "$B/rpm/chaos-installer-$V-1.x86_64.rpm" "dist/ChaOS-Installer-$V-x86_64.rpm"
+      - uses: actions/upload-artifact@v4
+        with: { name: linux, path: dist/* }
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [macos, windows, linux]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - name: The tag is Cargo.toml's version
+        run: |
+          V=$(sed -n 's/^version = "\(.*\)"$/\1/p' src-tauri/Cargo.toml | head -1)
+          [ "v$V" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME is not v$V"; exit 1; }
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum ChaOS-Installer-* > SHA256SUMS && cat SHA256SUMS
+      - name: Release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" \
+            --title "ChaOS Installer ${GITHUB_REF_NAME#v}" --generate-notes --verify-tag

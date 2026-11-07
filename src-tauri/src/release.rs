@@ -1,5 +1,5 @@
-// What to put on the card, from GitHub: the latest TortOS release, the
-// Brick's or the Pixel's card image out of it, checked against the release's
+// What to put on the card, from GitHub: the latest ChaOS release, the
+// Brick's card image out of it, checked against the release's
 // SHA256SUMS before anything is written. And whether a newer installer is out.
 //
 // GitHub's "latest" never names a draft or a pre-release, so a beta stays
@@ -12,9 +12,9 @@ use sha2::{Digest, Sha256};
 
 use crate::writer::Progress;
 
-const TORTOS: &str = "ericreinsmidt/TortOS";
-const INSTALLER: &str = "ericreinsmidt/TortOS-Installer";
-pub const INSTALLER_RELEASES: &str = "https://github.com/ericreinsmidt/TortOS-Installer/releases/latest";
+const CHAOS: &str = "SkyWalker541/ChaOS";
+const INSTALLER: &str = "SkyWalker541/ChaOS-Installer";
+pub const INSTALLER_RELEASES: &str = "https://github.com/SkyWalker541/ChaOS-Installer/releases/latest";
 const SUMS: &str = "SHA256SUMS";
 
 #[derive(serde::Deserialize, Clone, Debug)]
@@ -38,21 +38,23 @@ impl Release {
         self.tag_name.trim_start_matches('v')
     }
 
-    /// The device's card image: TortOS-v2.0.0-brick.img.xz or
-    /// TortOS-v2.0.0-pixel2.img.xz. Releases before 2.0.0 had a zip for the
-    /// Brick, for TrimUI's firmware, and none of these
+    /// The Brick's card image: ChaOS-v1.0.0-brick.img.xz. ChaOS is for the
+    /// Brick only, so asking for any other device's finds none
     pub fn asset(&self, brick: bool) -> Result<&Asset, String> {
-        let want = format!("TortOS-v{}-{}.img.xz", self.version(), if brick { "brick" } else { "pixel2" });
+        if !brick {
+            return Err("ChaOS is only for the TrimUI Brick.".into());
+        }
+        let want = format!("ChaOS-v{}-brick.img.xz", self.version());
         self.assets
             .iter()
             .find(|a| a.name == want)
-            .ok_or_else(|| format!("TortOS {} has no {want} to download.", self.version()))
+            .ok_or_else(|| format!("ChaOS {} has no {want} to download.", self.version()))
     }
 }
 
 fn agent() -> ureq::Agent {
     ureq::Agent::config_builder()
-        .user_agent(concat!("tortos-installer/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("chaos-installer/", env!("CARGO_PKG_VERSION")))
         .timeout_connect(Some(std::time::Duration::from_secs(15)))
         .build()
         .into()
@@ -74,13 +76,13 @@ fn unreachable(e: ureq::Error) -> String {
             "GitHub is asking for a break: too many checks from this network for now. Try again in a while.".into()
         }
         ureq::Error::StatusCode(code) => format!("GitHub answered {code}. Try again in a while."),
-        e => format!("Couldn't reach GitHub, where TortOS is downloaded from: {e}"),
+        e => format!("Couldn't reach GitHub, where ChaOS is downloaded from: {e}"),
     }
 }
 
-/// TortOS's latest release.
+/// ChaOS's latest release.
 pub fn latest() -> Result<Release, String> {
-    latest_of(TORTOS).map_err(unreachable)
+    latest_of(CHAOS).map_err(unreachable)
 }
 
 /// A newer installer's version, if one is out. Says nothing when GitHub
@@ -138,12 +140,12 @@ pub fn download(
         .assets
         .iter()
         .find(|a| a.name == SUMS)
-        .ok_or_else(|| format!("TortOS {} has no checksums to check the download against.", release.version()))?;
+        .ok_or_else(|| format!("ChaOS {} has no checksums to check the download against.", release.version()))?;
     let sums = get(&sums_asset.browser_download_url)
         .and_then(|mut r| r.body_mut().read_to_string())
         .map_err(unreachable)?;
     let want = sum_for(&sums, &asset.name)
-        .ok_or_else(|| format!("TortOS {}'s checksums don't name {}.", release.version(), asset.name))?;
+        .ok_or_else(|| format!("ChaOS {}'s checksums don't name {}.", release.version(), asset.name))?;
 
     std::fs::create_dir_all(dir).map_err(|e| format!("Making {}: {e}", dir.display()))?;
     let path = dir.join(&asset.name);
@@ -201,17 +203,13 @@ mod tests {
     }
 
     #[test]
-    fn picks_each_devices_file() {
-        let r = release(
-            "v2.0.0",
-            &["SHA256SUMS", "TortOS-v2.0.0-pixel2-sources.tar", "TortOS-v2.0.0-pixel2.img.xz",
-              "TortOS-v2.0.0-brick-sources.tar", "TortOS-v2.0.0-brick.img.xz"],
-        );
-        assert_eq!(r.version(), "2.0.0");
-        assert_eq!(r.asset(true).unwrap().name, "TortOS-v2.0.0-brick.img.xz");
-        assert_eq!(r.asset(false).unwrap().name, "TortOS-v2.0.0-pixel2.img.xz");
-        // Before 2.0.0 the Brick's TortOS was a zip, for TrimUI's firmware
-        assert!(release("v1.6.0", &["TortOS-v1.6.0.zip", "TortOS-v1.6.0-pixel2.img.xz"]).asset(true).is_err());
+    fn picks_the_bricks_file() {
+        let r = release("v1.0.0", &["SHA256SUMS", "ChaOS-v1.0.0-brick.img.xz"]);
+        assert_eq!(r.version(), "1.0.0");
+        assert_eq!(r.asset(true).unwrap().name, "ChaOS-v1.0.0-brick.img.xz");
+        assert!(r.asset(false).is_err(), "ChaOS is for the Brick only");
+        // A TortOS image in a release is not ChaOS's
+        assert!(release("v2.1.1", &["TortOS-v2.1.1-brick.img.xz"]).asset(true).is_err());
     }
 
     #[test]
@@ -231,14 +229,14 @@ mod tests {
         assert_eq!(sum_for(sums, "TortOS-v1.3.0"), None);
     }
 
-    /// The real thing, over the network: TortOS's latest release, both files
-    /// downloaded and checked
+    /// The real thing, over the network: ChaOS's latest release, the Brick's
+    /// image downloaded and checked
     #[test]
     #[ignore]
     fn downloads_the_latest() {
         let r = latest().unwrap();
-        let dir = std::env::temp_dir().join("tortos-installer-test");
-        for brick in [true, false] {
+        let dir = std::env::temp_dir().join("chaos-installer-test");
+        for brick in [true] {
             let asset = r.asset(brick).unwrap();
             let started = std::time::Instant::now();
             let path = download(&r, asset, &dir, &mut |_| {}, &|| false).unwrap();

@@ -5,14 +5,15 @@
 
 const invoke = window.__TAURI__ ? window.__TAURI__.core.invoke : null;
 const $ = (id) => document.getElementById(id);
+// ChaOS is for the TrimUI Brick only
 const DEVICE = { brick: "the Brick", pixel2: "the Pixel 2" };
 
-const state = { cards: [], cardId: null, device: null, action: null, userDevice: false, screen: "main", writing: null,
+const state = { cards: [], cardId: null, device: "brick", action: null, userDevice: false, screen: "main", writing: null,
 	latest: null, latestError: null };
 
-// "TortOS 1.3.0", or "TortOS from" the local file a test build comes from
+// "ChaOS 1.0.0", or "ChaOS from" the local file a test build comes from
 function latestName() {
-	return state.latest ? "TortOS " + state.latest : "TortOS";
+	return state.latest ? "ChaOS " + state.latest : "ChaOS";
 }
 
 function plural(n, one, many) {
@@ -33,13 +34,19 @@ function selected() {
 	return state.cards.find((c) => c.id === state.cardId) || null;
 }
 
+// ChaOS or TortOS, which keep their files in the same place
+function system(card) {
+	return card.chaos ? "ChaOS" : "TortOS";
+}
+
 function describe(card) {
-	if (!card.device) return "No TortOS on this card";
-	if (!card.started) return "TortOS for " + DEVICE[card.device] + ", not started yet: its first start makes room for games";
+	if (!card.device) return "No ChaOS on this card";
+	if (card.device !== "brick") return "TortOS for " + DEVICE[card.device] + ": ChaOS is for the Brick only";
+	if (!card.started) return "For " + DEVICE[card.device] + ", not started yet: its first start makes room for games";
 	// A card whose games partition isn't mounted can't be read: said so, not
 	// taken for a TortOS too old to say its version
-	if (!card.volume) return "TortOS for " + DEVICE[card.device] + " · its games partition isn't mounted, so what's on it can't be read";
-	const which = "TortOS " + (card.version || "before 1.4") + " for " + DEVICE[card.device]
+	if (!card.volume) return "For " + DEVICE[card.device] + " · its games partition isn't mounted, so what's on it can't be read";
+	const which = system(card) + " " + (card.version || "before 1.4") + " for " + DEVICE[card.device]
 		+ (card.trimui ? ", on TrimUI's firmware" : "");
 	const counts = [];
 	if (card.games) counts.push(plural(card.games, "game", "games"));
@@ -52,9 +59,9 @@ function describe(card) {
 // its own system
 function updateBlocked(card) {
 	if (!card) return "Put in a card.";
-	if (!card.device) return "There is no TortOS on this card to update.";
+	if (!card.device) return "There is no ChaOS or TortOS on this card to update.";
 	if (card.device !== state.device) return "This card has TortOS for " + DEVICE[card.device] + ".";
-	if (card.trimui) return "This card runs TrimUI's firmware: moving it to TortOS 2 erases it.";
+	if (card.trimui) return "This card runs TrimUI's firmware: moving it to ChaOS erases it.";
 	return null;
 }
 
@@ -95,20 +102,20 @@ function render() {
 	// A Brick card on TrimUI's firmware has no fresh install of its own: the
 	// same choice moves it, keeping its saves and settings, so it says so
 	const movable = card && card.trimui && state.device === "brick";
-	$("fresh-title").textContent = movable ? "Move to TortOS 2" : "Fresh install";
+	$("fresh-title").textContent = movable ? "Move to ChaOS" : "Fresh install";
 	$("fresh-what").textContent = movable ? "Keeps your saves, settings and BIOS files; the rest of the card is erased."
 		: "Erases the whole card and starts over.";
 
 	const fresh = state.action === "fresh";
 	const moving = fresh && card && card.trimui && state.device === "brick";
 	const go = $("go");
-	go.textContent = moving ? "Move to TortOS 2" : fresh ? "Erase and install" : "Update card";
+	go.textContent = moving ? "Move to ChaOS" : fresh ? "Erase and install" : "Update card";
 	go.classList.toggle("erase", fresh);
 	go.disabled = !card || !state.device;
-	const already = !fresh && card && state.latest && card.version === state.latest;
+	const already = !fresh && card && card.chaos && state.latest && card.version === state.latest;
 	$("note").textContent = !card ? ""
 		: !state.device ? "Choose the device this card is for."
-		: state.latestError && !state.latest ? "GitHub can't be reached right now. TortOS is downloaded from there."
+		: state.latestError && !state.latest ? "GitHub can't be reached right now. ChaOS is downloaded from there."
 		: already ? "This card already has " + latestName() + ": updating writes it again."
 		: moving ? latestName() + " \u00b7 The card is erased. Your saves and settings are kept on this computer and put back after."
 		: latestName() + " \u00b7 " + (fresh ? "Everything on the card goes: games, music, saves." : "Nothing on the card is erased.");
@@ -137,7 +144,7 @@ function backupLabel() {
 function cardChanged() {
 	const card = selected();
 	state.userDevice = false;
-	state.device = card && card.device ? card.device : state.device;
+	state.device = "brick";   // ChaOS is for the Brick only: any card can become a Brick card
 	state.action = null;
 	render();
 }
@@ -201,11 +208,11 @@ async function begin() {
 	if (!card || !state.device) return;
 	if (state.action !== "fresh") return write();
 	const moving = card.trimui && state.device === "brick";
-	$("confirm-title").textContent = moving ? "Move to TortOS 2" : "Fresh install";
+	$("confirm-title").textContent = moving ? "Move to ChaOS" : "Fresh install";
 	$("confirm-card").textContent = cardName(card) + " \u00b7 " + size(card.size_bytes);
 	$("confirm-device").textContent = DEVICE[state.device];
 	$("confirm-what").textContent = moving
-		? "This erases the whole card: TortOS 2 brings its own system, in place of TrimUI's firmware."
+		? "This erases the whole card: ChaOS brings its own system, in place of TrimUI's firmware."
 		: "Everything on it goes: games, music, saves.";
 	const yours = [];
 	if (card.games) yours.push(plural(card.games, "game", "games"));
@@ -234,7 +241,7 @@ async function write() {
 	const moving = state.action === "fresh" && card.trimui && state.device === "brick";
 	const action = moving ? "move" : state.action;
 	state.writing = { card, device: state.device, action };
-	$("working-title").textContent = moving ? "Moving to TortOS 2" : state.action === "fresh" ? "Installing TortOS" : "Updating the card";
+	$("working-title").textContent = moving ? "Moving to ChaOS" : state.action === "fresh" ? "Installing ChaOS" : "Updating the card";
 	const local = state.latest && state.latest.startsWith("from ");
 	$("working-phase").textContent = moving ? "Backing up" : !local ? "Getting " + latestName() : "Opening the card";
 	$("working-what").textContent = moving ? WRITING.move : "Your computer may ask for your password.";
@@ -250,8 +257,8 @@ async function write() {
 
 // What is being written, by action: the same on both devices
 const WRITING = {
-	fresh: "TortOS and plastron, the whole card.",
-	update: "TortOS and plastron. The games, music and saves stay.",
+	fresh: "ChaOS and plastron, the whole card.",
+	update: "ChaOS and plastron. The games, music and saves stay.",
 	move: "Your saves, settings and BIOS files, to this computer: each file read back.",
 	restore: "Your saves, settings and BIOS files, back onto the card: each file read back.",
 };
@@ -403,7 +410,7 @@ if (window.__TAURI__) {
 	});
 }
 
-// What TortOS the button installs, asked once; again every half minute while
+// What ChaOS the button installs, asked once; again every half minute while
 // GitHub can't be reached
 async function findLatest() {
 	try {

@@ -1,5 +1,5 @@
 {
-  "productName": "tortos-installer",
+  "productName": "chaos-installer",
   "bundle": {
     "linux": {
       "deb": { "desktopTemplate": "linux.desktop" },
