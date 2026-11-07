@@ -198,7 +198,7 @@ mod system {
                 .map(|a| a.iter().filter_map(Value::as_dictionary).collect())
                 .unwrap_or_default();
             let system = partitions.iter().find_map(|p| system_of(&text(p, "VolumeName")));
-            let started = system.is_none() || partitions.iter().any(|p| games_label(text(p, "VolumeName")));
+            let started = system.is_none() || partitions.iter().any(|p| games_label(&text(p, "VolumeName")));
             let size = info.get("TotalSize").and_then(Value::as_unsigned_integer).unwrap_or(0);
             let mut card = Card {
                 id: id.clone(),
@@ -218,7 +218,7 @@ mod system {
             // (on a Brick card not started yet the largest is its root), else
             // the largest partition
             let main = if system.is_some() {
-                partitions.iter().find(|p| games_label(text(p, "VolumeName")))
+                partitions.iter().find(|p| games_label(&text(p, "VolumeName")))
             } else {
                 partitions
                     .iter()
