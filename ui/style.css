@@ -1,0 +1,151 @@
+/* The installer's main screen, in TortOS's palette and type: the same as the
+ * launcher and Down To The Wire. */
+@font-face { font-family: "TortOS"; src: url("fonts/menu.ttf") format("truetype"); }
+@font-face { font-family: "Wordmark"; src: url("fonts/wordmark.ttf") format("truetype"); }
+
+:root {
+	--ground: #0a0b0f;
+	--panel: #161820;
+	--panel-hi: #1e212b;
+	--line: #262a36;
+	--text: #ededf2;
+	--soft: #c6c9d6;
+	--dim: #9499ac;
+	--accent: #3dd6ff;
+	--green: #80b076;
+	--bad: #ff6b5e;
+	--radius: 14px;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--ground); }
+/* Hidden wins over a class's own display (.panel's grid, .check's flex) */
+[hidden] { display: none !important; }
+body {
+	margin: 0;
+	color: var(--text);
+	font: 16px/1.4 "TortOS", system-ui, sans-serif;
+	min-height: 100vh;
+	display: flex;
+	justify-content: center;
+}
+
+.window { width: 760px; padding: 22px 28px 26px; }
+
+/* The turtle behind everything, faint, as on Hare's and Wire's page. The
+ * ground is on html alone, so body's ground doesn't paint over this */
+body::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	background: url("turtle.svg") no-repeat center;
+	/* 1.375 is the mark's own 286x208 */
+	background-size: min(600px, 86vw, calc(62vh * 1.375)) auto;
+	opacity: .09;
+}
+
+header { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+header img { width: 84px; height: 45px; }
+.wordmark { font: 34px/1 "Wordmark", "TortOS", sans-serif; letter-spacing: .5px; }
+.wordmark .tort { color: var(--green); }
+.wordmark .os { color: var(--accent); }
+header .sub { color: var(--dim); font-size: 18px; margin-left: 2px; position: relative; top: 4px; }
+header .ver { margin-left: auto; color: var(--dim); font-size: 13px; }
+/* A newer installer: a link, before the version */
+header .newer {
+	margin-left: auto; background: none; border: 0; padding: 0; cursor: pointer;
+	color: var(--accent); font: inherit; font-size: 13px; text-decoration: underline;
+}
+header .newer:not([hidden]) + .ver { margin-left: 0; }
+
+h2 {
+	font-size: 13px; font-weight: normal; letter-spacing: 1.5px; text-transform: uppercase;
+	color: var(--dim); margin: 18px 0 8px;
+}
+
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.choice {
+	background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius);
+	padding: 14px 16px; cursor: pointer; text-align: left; color: inherit; font: inherit;
+	transition: border-color .12s, background .12s;
+}
+.choice:hover { background: var(--panel-hi); }
+.choice.on { border-color: var(--accent); background: var(--panel-hi); }
+.choice b { display: block; font-weight: normal; font-size: 19px; }
+.choice span { display: block; color: var(--dim); font-size: 14px; margin-top: 3px; }
+.choice.erase.on { border-color: var(--bad); }
+.choice.erase.on b { color: var(--bad); }
+
+.card {
+	display: flex; align-items: center; gap: 14px;
+	background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius);
+	padding: 12px 16px;
+}
+.card svg { flex: none; }
+.card .name { font-size: 19px; }
+.card .what { color: var(--dim); font-size: 14px; }
+.card .found { color: var(--green); }
+/* Drawn by us, not the system: the native one centers Josefin Sans' line box,
+ * and the face sits high in it, so the text rode high. A little more room
+ * above than below puts the letters in the middle; the arrows are ours too. */
+.card select {
+	-webkit-appearance: none; appearance: none;
+	margin-left: auto; color: var(--soft); font: inherit; font-size: 14px; line-height: 1;
+	background: var(--panel-hi) no-repeat right 11px center / 9px 14px
+		url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 14'%3E%3Cpath d='M1 5l3.5-3.5L8 5M1 9l3.5 3.5L8 9' fill='none' stroke='%23c6c9d6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	border: 1px solid var(--line); border-radius: 10px; padding: 9px 30px 6px 12px;
+	cursor: pointer;
+}
+.card select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+footer { display: flex; align-items: center; gap: 12px; margin-top: 24px; }
+.go {
+	margin-left: auto; background: var(--accent); color: #06222b; font: inherit; font-size: 18px;
+	border: 0; border-radius: 12px; padding: 12px 26px; cursor: pointer;
+}
+.go:hover { filter: brightness(1.08); }
+.go.erase { background: var(--bad); color: #2b0906; }
+.note { color: var(--dim); font-size: 13px; margin-top: 10px; min-height: 18px; }
+
+/* What can't be chosen right now: Update on a card without this device's
+ * TortOS, and the button with no card in */
+.choice:disabled { opacity: .45; cursor: not-allowed; }
+.choice:disabled:hover { background: var(--panel); }
+.go:disabled { opacity: .4; cursor: default; filter: none; }
+.card .info { min-width: 0; }
+
+/* The button at the bottom right, and under it the note saying what it will
+ * do, ending on the button's right edge so the two read as one */
+footer { flex-direction: column; align-items: flex-end; gap: 8px; }
+footer .go { margin-left: 0; }
+footer .note { margin: 0; text-align: right; }
+
+/* The screens after the button: confirm, working, finished */
+.panel {
+	background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius);
+	padding: 18px 20px; display: grid; gap: 10px;
+}
+.panel p { margin: 0; color: var(--dim); font-size: 15px; }
+.panel .big { color: var(--text); font-size: 20px; }
+.panel .big.bad { color: var(--bad); }
+.bar { height: 10px; border-radius: 999px; background: var(--panel-hi); border: 1px solid var(--line); overflow: hidden; }
+.bar > div { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .2s linear; }
+footer.row { flex-direction: row; align-items: center; justify-content: space-between; }
+/* The Done screen after a put-back: Show the card beside Eject, on the right */
+#finished footer.row { justify-content: flex-end; }
+#finished footer.row span { margin-right: auto; }
+.plain {
+	background: none; border: 1px solid var(--line); color: var(--soft); font: inherit; font-size: 16px;
+	border-radius: 12px; padding: 11px 20px; cursor: pointer;
+}
+.plain:hover { border-color: var(--dim); }
+.plain:disabled { opacity: .4; cursor: default; }
+@media (prefers-reduced-motion: reduce) { .bar > div { transition: none; } }
+.panel .yours { color: var(--text); }
+.check { display: flex; align-items: center; gap: 10px; font-size: 15px; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--bad); }
+.restore { margin-top: 14px; border-color: var(--green); }
+.restore .go { justify-self: start; }
