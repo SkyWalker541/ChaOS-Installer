@@ -8,8 +8,14 @@ const $ = (id) => document.getElementById(id);
 // ChaOS is for the TrimUI Brick only
 const DEVICE = { brick: "the Brick", pixel2: "the Pixel 2" };
 
+// Pre-Release: the newest build, a test build when one is newer than the
+// release. Remembered on this computer.
+function savedPre() {
+	try { return localStorage.getItem("channel") === "pre"; } catch (_) { return false; }
+}
+
 const state = { cards: [], cardId: null, device: "brick", action: null, userDevice: false, screen: "main", writing: null,
-	latest: null, latestError: null };
+	latest: null, latestError: null, pre: savedPre() };
 
 // "ChaOS 1.0.0", or "ChaOS from" the local file a test build comes from
 function latestName() {
@@ -99,6 +105,8 @@ function render() {
 	$("update-what").textContent = blocked || "Keeps the games, music and saves on the card.";
 	for (const b of document.querySelectorAll("[data-group=action] .choice"))
 		b.classList.toggle("on", b.dataset.value === state.action);
+	for (const b of document.querySelectorAll("[data-group=channel] .choice"))
+		b.classList.toggle("on", b.dataset.value === (state.pre ? "pre" : "public"));
 	// A Brick card on TrimUI's firmware has no fresh install of its own: the
 	// same choice moves it, keeping its saves and settings, so it says so
 	const movable = card && card.trimui && state.device === "brick";
@@ -178,7 +186,15 @@ for (const group of document.querySelectorAll("[data-group]")) {
 	group.addEventListener("click", (e) => {
 		const pick = e.target.closest(".choice");
 		if (!pick || pick.disabled) return;
-		if (group.dataset.group === "device") {
+		if (group.dataset.group === "channel") {
+			const pre = pick.dataset.value === "pre";
+			if (pre !== state.pre) {
+				state.pre = pre;
+				try { localStorage.setItem("channel", pre ? "pre" : "public"); } catch (_) {}
+				state.latest = null;
+				findLatest();
+			}
+		} else if (group.dataset.group === "device") {
 			state.device = pick.dataset.value;
 			state.userDevice = true;
 			state.action = null;
@@ -249,7 +265,8 @@ async function write() {
 	$("working-cancel").disabled = false;
 	show("working");
 	try {
-		await invoke("start", { card: card.id, device: state.device, action, label: moving ? backupLabel() : null });
+		await invoke("start", { card: card.id, device: state.device, action, label: moving ? backupLabel() : null,
+			pre: state.pre });
 	} catch (e) {
 		finish({ ok: false, cancelled: false, message: String(e) });
 	}
@@ -413,8 +430,11 @@ if (window.__TAURI__) {
 // What ChaOS the button installs, asked once; again every half minute while
 // GitHub can't be reached
 async function findLatest() {
+	const pre = state.pre;
 	try {
-		state.latest = await invoke("latest_tortos");
+		const v = await invoke("latest_tortos", { pre });
+		if (pre !== state.pre) return;   // the channel changed while asking
+		state.latest = v;
 		state.latestError = null;
 	} catch (e) {
 		state.latestError = String(e);

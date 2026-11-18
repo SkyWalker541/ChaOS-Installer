@@ -115,11 +115,12 @@ async fn backup_plan(card: String) -> Result<(u64, String), String> {
 
 /// TortOS's latest version, for the screen to say what it installs.
 #[tauri::command]
-async fn latest_tortos() -> Result<String, String> {
+async fn latest_tortos(pre: Option<bool>) -> Result<String, String> {
     if let Some(path) = local_release(true).or_else(|| local_release(false)) {
         return Ok(format!("from {}", path.file_name().unwrap_or_default().to_string_lossy()));
     }
-    tauri::async_runtime::spawn_blocking(|| release::latest().map(|r| r.version().to_string()))
+    let pre = pre.unwrap_or(false);
+    tauri::async_runtime::spawn_blocking(move || release::latest(pre).map(|r| r.version().to_string()))
         .await
         .map_err(|e| e.to_string())?
 }
@@ -213,12 +214,13 @@ fn run(
     card_id: &str,
     brick: bool,
     job: Job,
+    pre: bool,
     progress: &mut dyn FnMut(writer::Progress),
     cancel: &AtomicBool,
 ) -> Result<Option<String>, String> {
     let cancelled = || cancel.load(Ordering::Relaxed);
     match job {
-        Job::Write(action) => write(card_id, brick, action, progress, cancel).map(|_| None),
+        Job::Write(action) => write(card_id, brick, action, pre, progress, cancel).map(|_| None),
         Job::Move(label) => {
             let card = find(card_id)?;
             if !brick || !card.trimui {
@@ -229,7 +231,7 @@ fn run(
             let made = backup::back_up(std::path::Path::new(&volume), &folder, &label, card.size_bytes, now(),
                                        progress, &cancelled)?;
             let shown = made.to_string_lossy().into_owned();
-            write(card_id, true, install::Action::Fresh, progress, cancel)
+            write(card_id, true, install::Action::Fresh, pre, progress, cancel)
                 .map(|_| Some(shown.clone()))
                 .map_err(|e| if e == "cancelled" { e } else { format!("{e} Your saves and settings are in {shown}.") })
         }
@@ -252,6 +254,7 @@ fn write(
     card_id: &str,
     brick: bool,
     action: install::Action,
+    pre: bool,
     progress: &mut dyn FnMut(writer::Progress),
     cancel: &AtomicBool,
 ) -> Result<(), String> {
@@ -268,7 +271,7 @@ fn write(
     let (source, downloaded) = match local_release(brick) {
         Some(path) => (path, false),
         None => {
-            let latest = release::latest()?;
+            let latest = release::latest(pre)?;
             let asset = latest.asset(brick)?;
             let dir = std::env::temp_dir().join("chaos-installer");
             (release::download(&latest, asset, &dir, progress, &|| cancel.load(Ordering::Relaxed))?, true)
@@ -290,7 +293,9 @@ fn write(
 /// name, made by the page in the computer's own time) or restore.
 #[tauri::command]
 fn start(app: AppHandle, running: State<Running>, card: String, device: String, action: String,
-         label: Option<String>) -> Result<(), String> {
+         label: Option<String>, pre: Option<bool>) -> Result<(), String> {
+    // Pre-Release: the newest build, a test build when one is newer
+    let pre = pre.unwrap_or(false);
     let brick = match device.as_str() {
         "brick" => true,
         "pixel2" => false,
@@ -336,7 +341,7 @@ fn start(app: AppHandle, running: State<Running>, card: String, device: String, 
         // A put-back leaves the card in: the games, music and audiobooks go
         // back on next, copied by the player (eject_card when they're done)
         let keep = matches!(job, Job::Restore);
-        let result = run(&card, brick, job, &mut progress, &cancel);
+        let result = run(&card, brick, job, pre, &mut progress, &cancel);
         // A card that finished well is ejected, ready to take out; one that
         // didn't stays, to be written again
         let eject = (result.is_ok() && !keep).then(|| {

@@ -47,7 +47,10 @@ it, then offers what fits:
   with the card, so copy them off first.
 
 ChaOS is downloaded from its latest release on GitHub
-(`ChaOS-v<version>-brick.img.xz`) and checked against the release's
+(`ChaOS-v<version>-brick.img.xz`), or with **Pre-Release** chosen under
+Release, the newest test build when there's one newer than the release
+(ChaOS's Pre-Release channel, the same builds a Brick gets over Wi-Fi on it),
+and checked against the release's
 `SHA256SUMS` before anything is written, and everything written is read back.
 When it's done, it ejects the card, or says why it couldn't.
 

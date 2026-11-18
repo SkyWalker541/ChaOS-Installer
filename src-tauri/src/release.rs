@@ -2,8 +2,9 @@
 // Brick's card image out of it, checked against the release's
 // SHA256SUMS before anything is written. And whether a newer installer is out.
 //
-// GitHub's "latest" never names a draft or a pre-release, so a beta stays
-// out of reach until it is published as a release.
+// GitHub's "latest" never names a draft or a pre-release, so a test build
+// stays out of reach on Public Release. Pre-Release takes the newest of
+// either: a test build when one is newer than the release, else the release.
 
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -30,6 +31,8 @@ pub struct Release {
     assets: Vec<Asset>,
     #[serde(default)]
     html_url: String,
+    #[serde(default)]
+    draft: bool,
 }
 
 impl Release {
@@ -80,9 +83,45 @@ fn unreachable(e: ureq::Error) -> String {
     }
 }
 
-/// ChaOS's latest release.
-pub fn latest() -> Result<Release, String> {
-    latest_of(CHAOS).map_err(unreachable)
+/// ChaOS's latest release, or with `pre` the newest build of all: a test
+/// build ("2.7.0-test1") when one is newer than the release.
+pub fn latest(pre: bool) -> Result<Release, String> {
+    let release = latest_of(CHAOS).map_err(unreachable)?;
+    if !pre {
+        return Ok(release);
+    }
+    let mut response = get(&format!("https://api.github.com/repos/{CHAOS}/releases?per_page=20")).map_err(unreachable)?;
+    let text = response.body_mut().read_to_string().map_err(unreachable)?;
+    let all: Vec<Release> = serde_json::from_str(&text).map_err(|e| format!("GitHub's answer didn't read: {e}"))?;
+    // Builds only: a version's tag, "v..." ("testing" is the channel's own
+    // pointer, not a build), and not a draft
+    let newest = all
+        .into_iter()
+        .filter(|r| !r.draft && r.tag_name.starts_with('v'))
+        .fold(None::<Release>, |best, r| match best {
+            Some(b) if !newer_build(r.version(), b.version()) => Some(b),
+            _ => Some(r),
+        });
+    Ok(match newest {
+        Some(n) if newer_build(n.version(), release.version()) => n,
+        _ => release,
+    })
+}
+
+/// Whether build `a` is after `b`, a test build coming before its release:
+/// 2.7.0-test1 is after 2.6.0 and before 2.7.0, and test2 after test1
+fn newer_build(a: &str, b: &str) -> bool {
+    let split = |v: &str| -> (String, u64) {
+        match v.split_once("-test") {
+            Some((n, t)) => (n.to_string(), t.parse().unwrap_or(0)),
+            None => (v.to_string(), u64::MAX),
+        }
+    };
+    let ((an, at), (bn, bt)) = (split(a), split(b));
+    if an != bn {
+        return newer(&an, &bn);
+    }
+    at > bt
 }
 
 /// A newer installer's version, if one is out. Says nothing when GitHub
@@ -189,6 +228,16 @@ pub fn download(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_builds_order() {
+        use super::newer_build;
+        assert!(newer_build("2.7.0-test1", "2.6.0"));
+        assert!(!newer_build("2.7.0-test1", "2.7.0"));
+        assert!(newer_build("2.7.0", "2.7.0-test2"));
+        assert!(newer_build("2.7.0-test2", "2.7.0-test1"));
+        assert!(!newer_build("2.6.0", "2.6.0"));
+    }
+
     use super::*;
 
     fn release(tag: &str, names: &[&str]) -> Release {
@@ -199,6 +248,7 @@ mod tests {
                 .map(|n| Asset { name: n.to_string(), size: 1, browser_download_url: String::new() })
                 .collect(),
             html_url: String::new(),
+            draft: false,
         }
     }
 
@@ -234,7 +284,7 @@ mod tests {
     #[test]
     #[ignore]
     fn downloads_the_latest() {
-        let r = latest().unwrap();
+        let r = latest(false).unwrap();
         let dir = std::env::temp_dir().join("chaos-installer-test");
         for brick in [true] {
             let asset = r.asset(brick).unwrap();

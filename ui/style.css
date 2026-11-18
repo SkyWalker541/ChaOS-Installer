@@ -67,6 +67,10 @@ h2 {
 }
 
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* Release: a choice made once, smaller than what to do */
+.pair.small .choice { padding: 10px 16px; }
+.pair.small .choice b { font-size: 16px; }
+.pair.small .choice span { font-size: 13px; }
 
 .choice {
 	background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius);
